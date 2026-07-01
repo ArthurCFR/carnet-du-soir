@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "carnet-soir",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 3100,
+      "env": {
+        "PORT": "3100",
+        "STORAGE_DIR": "./.storage-dev"
+      }
+    }
+  ]
+}

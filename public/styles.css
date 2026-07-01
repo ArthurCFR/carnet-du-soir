@@ -1,0 +1,436 @@
+:root {
+  --ocre: #b4761c;
+  --ocre-fonce: #8a5a13;
+  --lavis: #efe3c9;
+  --fond: #f8f3e8;
+  --papier: #fdfaf2;
+  --encre: #3a3126;
+  --encre-pale: #8c8272;
+  --bordure: #e8dcc2;
+
+  --serif: "Cormorant Garamond", Georgia, serif;
+  --corps: "Newsreader", Georgia, serif;
+  --maxw: 620px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--fond);
+  color: var(--encre);
+  font-family: var(--corps);
+  font-size: 18px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.app {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 5rem;
+  min-height: 100vh;
+}
+
+.loading-screen {
+  text-align: center;
+  color: var(--encre-pale);
+  padding-top: 30vh;
+  font-family: var(--serif);
+  font-size: 1.5rem;
+}
+
+/* --- Navigation ---------------------------------------------------------- */
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 1.75rem;
+  margin-bottom: 2.25rem;
+}
+
+.nav button {
+  background: none;
+  border: none;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: var(--encre-pale);
+  cursor: pointer;
+  padding: 0.15rem 0;
+  border-bottom: 1.5px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.nav button:hover {
+  color: var(--ocre-fonce);
+}
+
+.nav button.active {
+  color: var(--ocre-fonce);
+  border-bottom-color: var(--ocre);
+}
+
+/* --- Titres / dates ------------------------------------------------------ */
+.day-title {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 2rem;
+  line-height: 1.2;
+  margin: 0 0 1.75rem;
+  color: var(--encre);
+  text-transform: lowercase;
+}
+
+.day-title::first-letter {
+  text-transform: uppercase;
+}
+
+/* --- Transcript en cours ------------------------------------------------- */
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.segment {
+  border-left: 2px solid var(--bordure);
+  padding-left: 1rem;
+}
+
+.segment .seg-q {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--ocre);
+  margin: 0 0 0.4rem;
+}
+
+.segment .seg-text {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--encre);
+}
+
+/* --- Question "pensons" en attente -------------------------------------- */
+.pending-question {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.5rem;
+  line-height: 1.35;
+  color: var(--ocre-fonce);
+  margin: 0.5rem 0 1.1rem;
+}
+
+.appear {
+  animation: appear 0.7s ease both;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appear {
+    animation: none;
+  }
+}
+
+/* --- Saisie -------------------------------------------------------------- */
+textarea.entry {
+  width: 100%;
+  min-height: 8.5rem;
+  resize: vertical;
+  background: var(--papier);
+  border: 1px solid var(--bordure);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  font-family: var(--corps);
+  font-size: 1.08rem;
+  line-height: 1.65;
+  color: var(--encre);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+textarea.entry::placeholder {
+  color: var(--encre-pale);
+  font-style: italic;
+}
+
+textarea.entry:focus {
+  border-color: var(--ocre);
+  box-shadow: 0 0 0 3px rgba(180, 118, 28, 0.12);
+}
+
+/* --- Boutons ------------------------------------------------------------- */
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.pill {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  padding: 0.55rem 1.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pill-outline {
+  background: transparent;
+  color: var(--ocre-fonce);
+  border: 1.5px solid var(--ocre);
+}
+
+.pill-outline:hover:not(:disabled) {
+  background: rgba(180, 118, 28, 0.08);
+}
+
+.pill-solid {
+  background: var(--ocre);
+  color: #fff;
+  border: 1.5px solid var(--ocre);
+}
+
+.pill-solid:hover:not(:disabled) {
+  background: var(--ocre-fonce);
+  border-color: var(--ocre-fonce);
+}
+
+/* --- États de chargement / erreurs -------------------------------------- */
+.status-line {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--encre-pale);
+  margin-top: 1.1rem;
+  min-height: 1.2rem;
+}
+
+.status-line.busy::after {
+  content: "";
+  display: inline-block;
+  width: 0;
+  animation: ellipsis 1.4s steps(4, end) infinite;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+@keyframes ellipsis {
+  to {
+    width: 1.2em;
+  }
+}
+
+.error {
+  color: #a6472f;
+  font-family: var(--corps);
+  font-style: normal;
+  font-size: 0.95rem;
+}
+
+/* --- Rendu markdown (jour marqué) --------------------------------------- */
+.md h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 2rem;
+  line-height: 1.2;
+  margin: 0 0 1.25rem;
+  color: var(--encre);
+}
+
+.md p {
+  margin: 0 0 1rem;
+  color: var(--encre);
+}
+
+.md em {
+  font-style: italic;
+}
+
+.md strong {
+  font-weight: 600;
+}
+
+.marked-meta {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--encre-pale);
+  font-size: 1rem;
+  margin: 2rem 0 0.5rem;
+}
+
+/* --- Transcript dépliable ----------------------------------------------- */
+.disclosure {
+  margin-top: 1rem;
+  border-top: 1px solid var(--bordure);
+  padding-top: 1rem;
+}
+
+.disclosure summary {
+  cursor: pointer;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ocre-fonce);
+  list-style: none;
+  font-size: 1.1rem;
+}
+
+.disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure summary::before {
+  content: "› ";
+}
+
+.disclosure[open] summary::before {
+  content: "⌄ ";
+}
+
+.disclosure .transcript {
+  margin-top: 1.25rem;
+}
+
+/* --- Calendrier ---------------------------------------------------------- */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.cal-header .cal-month {
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  color: var(--encre);
+  text-transform: lowercase;
+}
+
+.cal-header .cal-month::first-letter {
+  text-transform: uppercase;
+}
+
+.cal-nav {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  color: var(--ocre);
+  padding: 0.25rem 0.6rem;
+  line-height: 1;
+}
+
+.cal-nav:hover {
+  color: var(--ocre-fonce);
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+
+.cal-dow {
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  color: var(--encre-pale);
+  padding-bottom: 0.4rem;
+}
+
+.cal-cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--corps);
+  font-size: 0.95rem;
+  border-radius: 50%;
+  color: var(--encre-pale);
+}
+
+.cal-cell.empty {
+  visibility: hidden;
+}
+
+.cal-cell.marked {
+  background: var(--ocre);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cal-cell.marked:hover {
+  background: var(--ocre-fonce);
+}
+
+.cal-cell.today {
+  box-shadow: inset 0 0 0 1.5px var(--ocre);
+  color: var(--ocre-fonce);
+}
+
+.cal-cell.today.marked {
+  color: #fff;
+}
+
+/* --- Divers -------------------------------------------------------------- */
+.back-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ocre-fonce);
+  font-size: 1.05rem;
+  padding: 0;
+  margin-bottom: 1.5rem;
+}
+
+.back-link::before {
+  content: "‹ ";
+}
+
+.empty-note {
+  color: var(--encre-pale);
+  font-style: italic;
+  text-align: center;
+  margin-top: 2rem;
+}
+
+@media (max-width: 480px) {
+  .app {
+    padding: 1.5rem 1rem 4rem;
+  }
+  .day-title {
+    font-size: 1.7rem;
+  }
+  .pending-question {
+    font-size: 1.3rem;
+  }
+}
