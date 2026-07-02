@@ -507,10 +507,22 @@ textarea.edit-text {
   line-height: 1.6;
   color: var(--encre);
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, min-height 0.28s ease;
 }
 
+/* Au focus : la zone s'agrandit pour plus de confort de lecture/écriture. */
 textarea.edit-text:focus {
   border-color: var(--ocre);
+  box-shadow: 0 0 0 3px rgba(180, 118, 28, 0.1);
+  min-height: 9.5rem;
+}
+
+#edit-md {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, min-height 0.28s ease;
+}
+
+#edit-md:focus {
+  min-height: 15rem;
 }
 
 .seg-del {
