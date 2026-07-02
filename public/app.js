@@ -392,4 +392,51 @@ async function init() {
   render();
 }
 
-init();
+// --- Écran d'accueil verrouillé ------------------------------------------
+// Séquence d'ouverture : cliquer les carrés 2 → 4 → 3 → 2.
+const UNLOCK_CODE = [2, 4, 3, 2];
+
+function renderLock() {
+  appEl.innerHTML = '';
+  const lock = el('div', { class: 'lock' });
+  lock.appendChild(el('h1', { class: 'lock-title' }, 'Carnet d’Arthur'));
+
+  const row = el('div', { class: 'lock-squares' });
+  let seq = [];
+  for (let i = 1; i <= 5; i++) {
+    const n = i;
+    const sq = el('button', { class: 'lock-square', 'aria-label': 'ouvrir' });
+    sq.addEventListener('click', () => {
+      sq.classList.add('tap');
+      setTimeout(() => sq.classList.remove('tap'), 160);
+
+      seq.push(n);
+      const prefixOk = UNLOCK_CODE.slice(0, seq.length).every((v, k) => v === seq[k]);
+      if (!prefixOk) {
+        // Mauvaise séquence : on réinitialise (en gardant un éventuel bon départ).
+        seq = n === UNLOCK_CODE[0] ? [n] : [];
+        row.classList.remove('wrong');
+        void row.offsetWidth; // relance l'animation
+        row.classList.add('wrong');
+        return;
+      }
+      if (seq.length === UNLOCK_CODE.length) unlock(lock);
+    });
+    row.appendChild(sq);
+  }
+  lock.appendChild(row);
+  appEl.appendChild(lock);
+}
+
+function unlock(lockEl) {
+  sessionStorage.setItem('carnet-unlocked', '1');
+  lockEl.classList.add('fade-out');
+  setTimeout(() => init(), 380);
+}
+
+function boot() {
+  if (sessionStorage.getItem('carnet-unlocked') === '1') init();
+  else renderLock();
+}
+
+boot();
