@@ -32,6 +32,7 @@ body {
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  touch-action: manipulation; /* supprime le zoom par double-tap sur mobile */
 }
 
 .app {
@@ -57,9 +58,8 @@ body {
   display: flex;
   justify-content: center;
   gap: 1.75rem;
-  /* déborde jusqu'aux bords pour que le fond masque le contenu qui défile dessous */
-  margin: -2rem -1.25rem 2.25rem;
-  padding: 1.6rem 1.25rem 1rem;
+  margin: 0 0 2.25rem;
+  padding: 0.9rem 0 1rem;
   background: var(--fond);
   transition: padding 0.28s ease, gap 0.28s ease, box-shadow 0.32s ease,
     border-color 0.32s ease;
@@ -68,7 +68,7 @@ body {
 
 /* État réduit : appliqué dès qu'on scrolle vers le bas. */
 .nav.reduced {
-  padding: 0.55rem 1.25rem;
+  padding: 0.5rem 0;
   gap: 1.25rem;
   box-shadow: 0 6px 18px rgba(58, 49, 38, 0.07);
   border-bottom-color: var(--bordure);
@@ -542,9 +542,7 @@ textarea.entry:focus {
     padding: 1.5rem 1rem 4rem;
   }
   .nav {
-    margin: -1.5rem -1rem 2rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    margin: 0 0 2rem;
   }
   .lock-title {
     font-size: 2.1rem;

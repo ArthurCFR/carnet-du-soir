@@ -404,6 +404,7 @@ async function init() {
     state.error = 'Connexion impossible.';
   }
   render();
+  window.scrollTo(0, 0); // on arrive toujours en haut de page, header non réduit
 }
 
 // --- Écran d'accueil verrouillé ------------------------------------------
