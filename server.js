@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const initSqlJs = require('sql.js');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,6 +14,62 @@ const RECENT_DAYS = 15; // nombre de .md des jours précédents fournis à l'IA
 const STORAGE_DIR = process.env.STORAGE_DIR || path.join(__dirname, '.storage');
 const DB_PATH = path.join(STORAGE_DIR, 'carnet.db');
 fs.mkdirSync(STORAGE_DIR, { recursive: true });
+
+// --- Authentification : la séquence de carrés est vérifiée ICI, côté serveur.
+// Le code n'existe nulle part dans le JS client. Une session validée reçoit
+// un cookie signé (HMAC) sans lequel toute l'API répond 401.
+const ACCESS_CODE = (process.env.ACCESS_CODE || '')
+  .split('')
+  .filter((c) => c.trim())
+  .map(Number);
+
+// Secret HMAC persisté dans le volume → les sessions survivent aux redeploys.
+const SECRET_PATH = path.join(STORAGE_DIR, 'session.key');
+let SESSION_SECRET;
+function loadSessionSecret() {
+  if (fs.existsSync(SECRET_PATH)) {
+    SESSION_SECRET = fs.readFileSync(SECRET_PATH);
+  } else {
+    SESSION_SECRET = crypto.randomBytes(32);
+    fs.writeFileSync(SECRET_PATH, SESSION_SECRET);
+  }
+}
+loadSessionSecret();
+
+function authToken() {
+  return crypto.createHmac('sha256', SESSION_SECRET).update('carnet-ok').digest('hex');
+}
+function parseCookies(req) {
+  const out = {};
+  (req.headers.cookie || '').split(';').forEach((part) => {
+    const idx = part.indexOf('=');
+    if (idx === -1) return;
+    out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+  });
+  return out;
+}
+function isAuthed(req) {
+  const token = parseCookies(req)['carnet_auth'];
+  if (!token) return false;
+  const a = Buffer.from(token);
+  const b = Buffer.from(authToken());
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// Anti-brute-force léger : compte les échecs par IP sur 5 min glissantes.
+const attempts = new Map();
+function tooManyAttempts(ip) {
+  const now = Date.now();
+  const e = attempts.get(ip) || { count: 0, ts: now };
+  if (now - e.ts > 5 * 60 * 1000) { e.count = 0; e.ts = now; }
+  attempts.set(ip, e);
+  return e.count >= 30;
+}
+function recordFail(ip) {
+  const e = attempts.get(ip) || { count: 0, ts: Date.now() };
+  e.count += 1;
+  attempts.set(ip, e);
+}
 
 // --- Base de données (sql.js, pur WASM) ------------------------------------
 let db;
@@ -180,8 +237,47 @@ function commitCurrentText(entry, text) {
 
 // --- App -------------------------------------------------------------------
 const app = express();
+app.set('trust proxy', true); // derrière le reverse-proxy Coolify → vraie IP via X-Forwarded-For
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Verrou global : toute l'API est bloquée sans session valide,
+// sauf la vérification de séquence et la lecture de l'état de session.
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) return next();
+  if (req.path === '/api/unlock' || req.path === '/api/session') return next();
+  if (isAuthed(req)) return next();
+  return res.status(401).json({ error: 'locked' });
+});
+
+// État de session : le client sait s'il doit afficher l'écran d'accueil.
+app.get('/api/session', (req, res) => {
+  res.json({ authenticated: isAuthed(req) });
+});
+
+// Vérification de la séquence de carrés. Réponse volontairement IDENTIQUE
+// quel que soit l'échec (aucune fuite sur "presque bon"). On valide si la
+// séquence reçue se TERMINE par le code — l'utilisateur peut donc tâtonner.
+app.post('/api/unlock', (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (tooManyAttempts(ip)) return res.status(429).json({ authenticated: false });
+
+  const seq = Array.isArray(req.body.seq) ? req.body.seq.slice(-40).map(Number) : [];
+  const n = ACCESS_CODE.length;
+  const tail = seq.slice(-n);
+  const ok = n > 0 && tail.length === n && tail.every((v, i) => v === ACCESS_CODE[i]);
+
+  if (!ok) {
+    recordFail(ip);
+    return res.json({ authenticated: false });
+  }
+  attempts.delete(ip);
+  res.setHeader(
+    'Set-Cookie',
+    `carnet_auth=${authToken()}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 365}`
+  );
+  res.json({ authenticated: true });
+});
 
 // Index dayKey -> status (pour colorer le calendrier sans tout charger).
 app.get('/api/index', (req, res) => {
@@ -301,6 +397,9 @@ async function start() {
     console.log(`Carnet du soir — http://localhost:${PORT}`);
     if (!process.env.ANTHROPIC_API_KEY) {
       console.warn('⚠  ANTHROPIC_API_KEY absente : l’app tourne, mais les fonctions IA renverront une erreur.');
+    }
+    if (!ACCESS_CODE.length) {
+      console.warn('⚠  ACCESS_CODE absent : aucune séquence ne pourra ouvrir l’app.');
     }
   });
 }

@@ -7,6 +7,7 @@
   --encre: #3a3126;
   --encre-pale: #8c8272;
   --bordure: #e8dcc2;
+  --vert-pale: #a9c6a0;
 
   --serif: "Cormorant Garamond", Georgia, serif;
   --corps: "Newsreader", Georgia, serif;
@@ -473,26 +474,27 @@ textarea.entry:focus {
   background: var(--lavis);
 }
 
+/* Vibration identique à chaque clic — ne distingue jamais bon/mauvais. */
 .lock-square.tap {
-  transform: scale(1.35);
-  background: var(--lavis);
+  animation: microshake 0.24s ease;
 }
 
-.lock-squares.wrong {
-  animation: shake 0.4s ease;
-}
-
-@keyframes shake {
+@keyframes microshake {
   0%,
   100% {
     transform: translateX(0);
   }
-  25% {
-    transform: translateX(-5px);
+  30% {
+    transform: translateX(-2px);
   }
-  75% {
-    transform: translateX(5px);
+  70% {
+    transform: translateX(2px);
   }
+}
+
+/* Bonne séquence : tous les carrés passent en vert pâle, brièvement. */
+.lock-square.ok {
+  background: var(--vert-pale);
 }
 
 .lock.fade-out {
@@ -507,9 +509,6 @@ textarea.entry:focus {
 
 @media (prefers-reduced-motion: reduce) {
   .lock-square.tap {
-    transform: none;
-  }
-  .lock-squares.wrong {
     animation: none;
   }
   .lock.fade-out {

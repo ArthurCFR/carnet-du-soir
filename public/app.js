@@ -393,8 +393,28 @@ async function init() {
 }
 
 // --- Écran d'accueil verrouillé ------------------------------------------
-// Séquence d'ouverture : cliquer les carrés 2 → 4 → 3 → 2.
-const UNLOCK_CODE = [2, 4, 3, 2];
+// La séquence est vérifiée côté serveur : elle n'apparaît nulle part ici.
+// Chaque clic donne un feedback IDENTIQUE (aucune fuite juste/faux).
+const OK_FLASH_MS = 650;
+
+function pulse(sq) {
+  sq.classList.remove('tap');
+  void sq.offsetWidth; // relance l'animation à chaque clic
+  sq.classList.add('tap');
+  if (navigator.vibrate) {
+    try {
+      navigator.vibrate(12);
+    } catch (e) {}
+  }
+}
+
+function flashOk(squares, lockEl) {
+  squares.forEach((s) => s.classList.add('ok'));
+  setTimeout(() => {
+    lockEl.classList.add('fade-out');
+    setTimeout(() => init(), 420);
+  }, OK_FLASH_MS);
+}
 
 function renderLock() {
   appEl.innerHTML = '';
@@ -402,41 +422,41 @@ function renderLock() {
   lock.appendChild(el('h1', { class: 'lock-title' }, 'Carnet d’Arthur'));
 
   const row = el('div', { class: 'lock-squares' });
+  const squares = [];
   let seq = [];
+  let opening = false;
+
   for (let i = 1; i <= 5; i++) {
     const n = i;
     const sq = el('button', { class: 'lock-square', 'aria-label': 'ouvrir' });
-    sq.addEventListener('click', () => {
-      sq.classList.add('tap');
-      setTimeout(() => sq.classList.remove('tap'), 160);
-
+    sq.addEventListener('click', async () => {
+      if (opening) return;
+      pulse(sq); // feedback uniforme, systématique
       seq.push(n);
-      const prefixOk = UNLOCK_CODE.slice(0, seq.length).every((v, k) => v === seq[k]);
-      if (!prefixOk) {
-        // Mauvaise séquence : on réinitialise (en gardant un éventuel bon départ).
-        seq = n === UNLOCK_CODE[0] ? [n] : [];
-        row.classList.remove('wrong');
-        void row.offsetWidth; // relance l'animation
-        row.classList.add('wrong');
-        return;
+      if (seq.length > 40) seq = seq.slice(-40);
+      try {
+        const { authenticated } = await api('POST', '/api/unlock', { seq });
+        if (authenticated) {
+          opening = true;
+          flashOk(squares, lock);
+        }
+      } catch (e) {
+        // Silencieux : échec réseau et mauvaise séquence sont indiscernables.
       }
-      if (seq.length === UNLOCK_CODE.length) unlock(lock);
     });
+    squares.push(sq);
     row.appendChild(sq);
   }
   lock.appendChild(row);
   appEl.appendChild(lock);
 }
 
-function unlock(lockEl) {
-  sessionStorage.setItem('carnet-unlocked', '1');
-  lockEl.classList.add('fade-out');
-  setTimeout(() => init(), 380);
-}
-
-function boot() {
-  if (sessionStorage.getItem('carnet-unlocked') === '1') init();
-  else renderLock();
+async function boot() {
+  try {
+    const { authenticated } = await api('GET', '/api/session');
+    if (authenticated) return init();
+  } catch (e) {}
+  renderLock();
 }
 
 boot();
