@@ -94,8 +94,12 @@ const state = {
   detailDayKey: null,
   calMonth: null, // {y, m}
   index: {},
-  busy: null, // 'question' | 'mark' | null
+  busy: null, // 'question' | 'mark' | 'save' | null
   error: null,
+  editing: false,
+  editDraft: null, // { md, transcript } — copie de travail pendant l'édition
+  editDayKey: null,
+  editError: null,
 };
 
 let saveTimer = null;
@@ -121,6 +125,7 @@ function renderNav() {
   const today = el('button', {
     class: state.view === 'today' ? 'active' : '',
     onclick: () => {
+      state.editing = false;
       state.view = 'today';
       render();
     },
@@ -128,6 +133,7 @@ function renderNav() {
   const cal = el('button', {
     class: state.view === 'calendar' || state.view === 'detail' ? 'active' : '',
     onclick: async () => {
+      state.editing = false;
       const now = new Date();
       state.calMonth = state.calMonth || { y: now.getFullYear(), m: now.getMonth() };
       await loadIndex();
@@ -155,9 +161,9 @@ function renderToday() {
   const frag = document.createDocumentFragment();
   frag.appendChild(renderNav());
 
-  // Jour marqué -> rendu du .md, immuable.
+  // Jour marqué -> rendu du .md (éditable).
   if (entry && entry.status === 'marked') {
-    frag.appendChild(renderMarkedEntry(entry));
+    frag.appendChild(renderMarkedEntry(entry, currentDayKey(), false));
     return frag;
   }
 
@@ -208,7 +214,9 @@ function renderToday() {
   return frag;
 }
 
-function renderMarkedEntry(entry, withBack = false) {
+function renderMarkedEntry(entry, dayKey, withBack = false) {
+  if (state.editing) return renderEditor(withBack);
+
   const frag = document.createDocumentFragment();
   if (withBack) {
     frag.appendChild(el('button', {
@@ -225,7 +233,144 @@ function renderMarkedEntry(entry, withBack = false) {
   disc.appendChild(el('summary', {}, 'le transcript'));
   disc.appendChild(renderTranscript(entry.transcript));
   frag.appendChild(disc);
+
+  frag.appendChild(el('button', {
+    class: 'edit-link',
+    onclick: () => startEdit(entry, dayKey),
+  }, 'éditer'));
   return frag;
+}
+
+function startEdit(entry, dayKey) {
+  state.editing = true;
+  state.editDayKey = dayKey;
+  state.editError = null;
+  state.editDraft = {
+    md: entry.md || '',
+    transcript: (entry.transcript || []).map((s) => ({ q: s.q || '', text: s.text || '' })),
+  };
+  render();
+  window.scrollTo(0, 0);
+}
+
+// Lit les champs du DOM dans la copie de travail (avant tout re-render structurel).
+function syncEditDraftFromDom() {
+  if (!state.editDraft) return;
+  const mdEl = document.getElementById('edit-md');
+  if (mdEl) state.editDraft.md = mdEl.value;
+  const qs = appEl.querySelectorAll('.edit-q');
+  const ts = appEl.querySelectorAll('.edit-text');
+  const next = [];
+  ts.forEach((t, i) => next.push({ q: qs[i] ? qs[i].value : '', text: t.value }));
+  state.editDraft.transcript = next;
+}
+
+function renderEditor(withBack) {
+  const d = state.editDraft;
+  const frag = document.createDocumentFragment();
+
+  if (withBack) {
+    frag.appendChild(el('button', {
+      class: 'back-link',
+      onclick: () => {
+        state.editing = false;
+        state.view = 'calendar';
+        render();
+      },
+    }, 'calendrier'));
+  }
+
+  frag.appendChild(el('p', { class: 'edit-label' }, 'La synthèse'));
+  const mdTa = el('textarea', { class: 'entry', id: 'edit-md' });
+  mdTa.value = d.md;
+  frag.appendChild(mdTa);
+
+  frag.appendChild(el('p', { class: 'edit-label' }, 'Le transcript'));
+  const list = el('div', { class: 'edit-segments' });
+  d.transcript.forEach((seg, i) => {
+    const item = el('div', { class: 'edit-seg' });
+    const qi = el('input', { class: 'edit-q', type: 'text', placeholder: 'question (facultatif)' });
+    qi.value = seg.q || '';
+    const tt = el('textarea', { class: 'edit-text', placeholder: 'passage' });
+    tt.value = seg.text || '';
+    const del = el('button', {
+      class: 'seg-del',
+      'aria-label': 'supprimer ce passage',
+      onclick: () => {
+        syncEditDraftFromDom();
+        state.editDraft.transcript.splice(i, 1);
+        render();
+      },
+    }, '×');
+    item.append(qi, tt, del);
+    list.appendChild(item);
+  });
+  frag.appendChild(list);
+
+  frag.appendChild(el('button', {
+    class: 'add-seg',
+    onclick: () => {
+      syncEditDraftFromDom();
+      state.editDraft.transcript.push({ q: '', text: '' });
+      render();
+    },
+  }, '+ un passage'));
+
+  const actions = el('div', { class: 'actions' });
+  actions.append(
+    el('button', { class: 'pill pill-solid', disabled: state.busy === 'save', onclick: onSaveEdit }, 'enregistrer'),
+    el('button', {
+      class: 'pill pill-outline',
+      disabled: state.busy === 'save',
+      onclick: () => {
+        state.editing = false;
+        state.editError = null;
+        render();
+      },
+    }, 'annuler')
+  );
+  frag.appendChild(actions);
+
+  const status = el('div', { class: 'status-line' });
+  if (state.busy === 'save') {
+    status.className = 'status-line busy';
+    status.textContent = 'j’enregistre';
+  } else if (state.editError) {
+    status.appendChild(el('span', { class: 'error' }, state.editError));
+  }
+  frag.appendChild(status);
+
+  return frag;
+}
+
+async function onSaveEdit() {
+  syncEditDraftFromDom();
+  const md = (state.editDraft.md || '').trim();
+  const transcript = state.editDraft.transcript
+    .map((s) => ({
+      ...(s.q && s.q.trim() ? { q: s.q.trim() } : {}),
+      text: (s.text || '').trim(),
+    }))
+    .filter((s) => s.text || s.q);
+
+  if (!md && transcript.length === 0) {
+    state.editError = 'Rien à enregistrer.';
+    return render();
+  }
+  state.busy = 'save';
+  state.editError = null;
+  render();
+  try {
+    const { entry } = await api('PUT', `/api/entry/${state.editDayKey}`, { md, transcript });
+    state.entry = entry;
+    state.editing = false;
+    state.busy = null;
+    render();
+  } catch (e) {
+    state.busy = null;
+    state.editError = e.message;
+    render();
+  }
 }
 
 function renderCalendar() {
@@ -295,7 +440,7 @@ function renderDetail() {
     return frag;
   }
   frag.appendChild(el('h1', { class: 'day-title' }, formatDateFr(state.detailDayKey)));
-  frag.appendChild(renderMarkedEntry(state.entry, true));
+  frag.appendChild(renderMarkedEntry(state.entry, state.detailDayKey, true));
   return frag;
 }
 
@@ -384,6 +529,7 @@ async function onMark() {
 }
 
 async function openDetail(dayKey) {
+  state.editing = false;
   state.detailDayKey = dayKey;
   state.entry = null;
   state.view = 'detail';

@@ -346,6 +346,31 @@ app.post('/api/entry/:dayKey/mark', async (req, res) => {
   }
 });
 
+// Édition d'un jour marqué : mise à jour directe de la synthèse et du transcript.
+app.put('/api/entry/:dayKey', (req, res) => {
+  const { dayKey } = req.params;
+  const existing = getEntry(dayKey);
+  if (!existing || existing.status !== 'marked') {
+    return res.status(404).json({ error: 'Jour marqué introuvable.' });
+  }
+  const md = typeof req.body.md === 'string' ? req.body.md.trim() : '';
+  const rawT = Array.isArray(req.body.transcript) ? req.body.transcript : [];
+  const transcript = rawT
+    .map((s) => ({
+      ...(s && typeof s.q === 'string' && s.q.trim() ? { q: s.q.trim() } : {}),
+      text: s && typeof s.text === 'string' ? s.text.trim() : '',
+    }))
+    .filter((s) => s.text || s.q);
+
+  if (!md && transcript.length === 0) {
+    return res.status(400).json({ error: 'Contenu vide.' });
+  }
+  existing.md = md;
+  existing.transcript = transcript;
+  upsertEntry(existing);
+  res.json({ entry: existing });
+});
+
 function describeError(e) {
   if (e.code === 'NO_KEY') return e.message;
   return 'L’IA n’a pas répondu. Ton texte est conservé, réessaie dans un instant.';
