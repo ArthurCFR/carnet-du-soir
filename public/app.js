@@ -306,6 +306,9 @@ function render() {
   else if (state.view === 'detail') content = renderDetail();
   else content = renderToday();
   appEl.appendChild(content);
+  document.body.classList.remove('view-lock');
+  document.body.classList.toggle('view-fixed', state.view === 'calendar');
+  if (state.view === 'calendar') window.scrollTo(0, 0);
   syncNav();
 }
 
@@ -433,6 +436,8 @@ function flashOk(squares, lockEl) {
 
 function renderLock() {
   appEl.innerHTML = '';
+  document.body.classList.add('view-lock');
+  document.body.classList.remove('view-fixed');
   const lock = el('div', { class: 'lock' });
   lock.appendChild(el('h1', { class: 'lock-title' }, 'Carnet d’Arthur'));
 

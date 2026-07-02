@@ -42,6 +42,21 @@ body {
   min-height: 100vh;
 }
 
+/* Accueil et calendrier : contenu court, tient dans l'écran → aucun défilement. */
+body.view-lock,
+body.view-fixed {
+  overflow: hidden;
+}
+
+body.view-lock .app {
+  min-height: 0;
+  padding: 0;
+}
+
+body.view-fixed .app {
+  min-height: 0;
+}
+
 .loading-screen {
   text-align: center;
   color: var(--encre-pale);
