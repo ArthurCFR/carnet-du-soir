@@ -306,7 +306,15 @@ function render() {
   else if (state.view === 'detail') content = renderDetail();
   else content = renderToday();
   appEl.appendChild(content);
+  syncNav();
 }
+
+// Header collant : passe en mode réduit dès qu'on scrolle vers le bas.
+function syncNav() {
+  const nav = appEl.querySelector('.nav');
+  if (nav) nav.classList.toggle('reduced', window.scrollY > 8);
+}
+window.addEventListener('scroll', syncNav, { passive: true });
 
 // --- Actions --------------------------------------------------------------
 function currentText() {

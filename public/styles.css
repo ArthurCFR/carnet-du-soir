@@ -51,10 +51,27 @@ body {
 
 /* --- Navigation ---------------------------------------------------------- */
 .nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   justify-content: center;
   gap: 1.75rem;
-  margin-bottom: 2.25rem;
+  /* déborde jusqu'aux bords pour que le fond masque le contenu qui défile dessous */
+  margin: -2rem -1.25rem 2.25rem;
+  padding: 1.6rem 1.25rem 1rem;
+  background: var(--fond);
+  transition: padding 0.28s ease, gap 0.28s ease, box-shadow 0.32s ease,
+    border-color 0.32s ease;
+  border-bottom: 1px solid transparent;
+}
+
+/* État réduit : appliqué dès qu'on scrolle vers le bas. */
+.nav.reduced {
+  padding: 0.55rem 1.25rem;
+  gap: 1.25rem;
+  box-shadow: 0 6px 18px rgba(58, 49, 38, 0.07);
+  border-bottom-color: var(--bordure);
 }
 
 .nav button {
@@ -67,7 +84,11 @@ body {
   cursor: pointer;
   padding: 0.15rem 0;
   border-bottom: 1.5px solid transparent;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, font-size 0.28s ease;
+}
+
+.nav.reduced button {
+  font-size: 0.9rem;
 }
 
 .nav button:hover {
@@ -451,17 +472,17 @@ textarea.entry:focus {
 
 .lock-squares {
   position: fixed;
-  bottom: 2rem;
+  bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   display: flex;
   justify-content: center;
-  gap: 0.9rem;
+  gap: 0.99rem;
 }
 
 .lock-square {
-  width: 14px;
-  height: 14px;
+  width: 15.4px;
+  height: 15.4px;
   border-radius: 3px;
   background: var(--bordure);
   border: none;
@@ -519,6 +540,11 @@ textarea.entry:focus {
 @media (max-width: 480px) {
   .app {
     padding: 1.5rem 1rem 4rem;
+  }
+  .nav {
+    margin: -1.5rem -1rem 2rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
   .lock-title {
     font-size: 2.1rem;
