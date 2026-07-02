@@ -23,37 +23,26 @@ const ACCESS_CODE = (process.env.ACCESS_CODE || '')
   .filter((c) => c.trim())
   .map(Number);
 
-// Secret HMAC persisté dans le volume → les sessions survivent aux redeploys.
-const SECRET_PATH = path.join(STORAGE_DIR, 'session.key');
-let SESSION_SECRET;
-function loadSessionSecret() {
-  if (fs.existsSync(SECRET_PATH)) {
-    SESSION_SECRET = fs.readFileSync(SECRET_PATH);
-  } else {
-    SESSION_SECRET = crypto.randomBytes(32);
-    fs.writeFileSync(SECRET_PATH, SESSION_SECRET);
-  }
-}
-loadSessionSecret();
-
-function authToken() {
-  return crypto.createHmac('sha256', SESSION_SECRET).update('carnet-ok').digest('hex');
-}
-function parseCookies(req) {
-  const out = {};
-  (req.headers.cookie || '').split(';').forEach((part) => {
-    const idx = part.indexOf('=');
-    if (idx === -1) return;
-    out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
-  });
-  return out;
+// Sessions ÉPHÉMÈRES, en mémoire serveur uniquement. Le token n'est jamais
+// stocké côté client au-delà de la page courante (ni cookie, ni localStorage) :
+// un simple refresh le perd → l'écran d'accueil est rejoué à chaque ouverture.
+const SESSION_TTL = 24 * 60 * 60 * 1000; // filet de sécurité : purge après 24 h
+const sessions = new Map(); // token -> expiresAt
+function createSession() {
+  const token = crypto.randomBytes(24).toString('hex');
+  sessions.set(token, Date.now() + SESSION_TTL);
+  return token;
 }
 function isAuthed(req) {
-  const token = parseCookies(req)['carnet_auth'];
+  const token = req.headers['x-carnet-token'];
   if (!token) return false;
-  const a = Buffer.from(token);
-  const b = Buffer.from(authToken());
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  const exp = sessions.get(token);
+  if (!exp) return false;
+  if (Date.now() > exp) {
+    sessions.delete(token);
+    return false;
+  }
+  return true;
 }
 
 // Anti-brute-force léger : compte les échecs par IP sur 5 min glissantes.
@@ -245,24 +234,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 // sauf la vérification de séquence et la lecture de l'état de session.
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/')) return next();
-  if (req.path === '/api/unlock' || req.path === '/api/session') return next();
+  if (req.path === '/api/unlock') return next();
   if (isAuthed(req)) return next();
   return res.status(401).json({ error: 'locked' });
-});
-
-// État de session : le client sait s'il doit afficher l'écran d'accueil.
-app.get('/api/session', (req, res) => {
-  res.json({ authenticated: isAuthed(req) });
 });
 
 // Vérification de la séquence de carrés. Réponse volontairement IDENTIQUE
 // quel que soit l'échec (aucune fuite sur "presque bon"). On valide si la
 // séquence reçue se TERMINE par le code — l'utilisateur peut donc tâtonner.
+// En cas de succès, un token de session éphémère est renvoyé dans le corps
+// (le client le garde en mémoire, il disparaît au refresh).
 app.post('/api/unlock', (req, res) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   if (tooManyAttempts(ip)) return res.status(429).json({ authenticated: false });
 
-  const seq = Array.isArray(req.body.seq) ? req.body.seq.slice(-40).map(Number) : [];
+  const seq = Array.isArray(req.body.seq) ? req.body.seq.slice(-60).map(Number) : [];
   const n = ACCESS_CODE.length;
   const tail = seq.slice(-n);
   const ok = n > 0 && tail.length === n && tail.every((v, i) => v === ACCESS_CODE[i]);
@@ -272,11 +258,7 @@ app.post('/api/unlock', (req, res) => {
     return res.json({ authenticated: false });
   }
   attempts.delete(ip);
-  res.setHeader(
-    'Set-Cookie',
-    `carnet_auth=${authToken()}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 365}`
-  );
-  res.json({ authenticated: true });
+  res.json({ authenticated: true, token: createSession() });
 });
 
 // Index dayKey -> status (pour colorer le calendrier sans tout charger).

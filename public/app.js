@@ -30,10 +30,16 @@ function formatDateFr(dayKey) {
 }
 
 // --- API ------------------------------------------------------------------
+// Token de session gardé UNIQUEMENT en mémoire → perdu à chaque refresh.
+let sessionToken = null;
+
 async function api(method, url, body) {
+  const headers = {};
+  if (body) headers['content-type'] = 'application/json';
+  if (sessionToken) headers['x-carnet-token'] = sessionToken;
   const res = await fetch(url, {
     method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -433,10 +439,11 @@ function renderLock() {
       if (opening) return;
       pulse(sq); // feedback uniforme, systématique
       seq.push(n);
-      if (seq.length > 40) seq = seq.slice(-40);
+      if (seq.length > 60) seq = seq.slice(-60);
       try {
-        const { authenticated } = await api('POST', '/api/unlock', { seq });
-        if (authenticated) {
+        const { authenticated, token } = await api('POST', '/api/unlock', { seq });
+        if (authenticated && token) {
+          sessionToken = token; // gardé en mémoire seulement
           opening = true;
           flashOk(squares, lock);
         }
@@ -451,12 +458,5 @@ function renderLock() {
   appEl.appendChild(lock);
 }
 
-async function boot() {
-  try {
-    const { authenticated } = await api('GET', '/api/session');
-    if (authenticated) return init();
-  } catch (e) {}
-  renderLock();
-}
-
-boot();
+// À chaque ouverture/refresh : écran d'accueil rejoué (aucune session côté client).
+renderLock();
